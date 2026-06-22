@@ -42,22 +42,49 @@ fragile). Les fenêtres inactives sont masquées de la status bar (navigation vi
 
 ## 🧠 Comment marche la détection d'état
 
-Claude Code écrit l'état dans le **titre du pane** :
-- `✳ …`  → Claude au repos **ou** en attente d'input (le titre ne distingue pas les deux !)
-- `⠐ ⠂ ⠄ …` (braille animé) → spinner = Claude travaille
-- titre vide / hostname → simple shell
+La détection combine **deux couches**, de la plus fiable à la plus heuristique.
 
-Comme `✳` est ambigu, le script [`scripts/cc-states.sh`](scripts/cc-states.sh)
-**capture le bas du pane** pour les sessions `✳` et cherche la signature d'un prompt
-interactif (`Esc to cancel`, `Enter to select`, `❯ 1.`, `Do you want`). Si trouvé →
-`waiting`, sinon → `idle`.
+### Couche A — Hooks Claude Code (événementiel, fiable)
+Claude Code déclenche des *hooks* qui héritent de l'environnement du terminal (donc
+`$TMUX_PANE` est connu). Le hook [`hooks/cc-state-hook.sh`](hooks/cc-state-hook.sh)
+écrit l'état dans `~/.claude/state/<pane_id>` :
 
-Le résultat est stocké dans l'option window `@cc_state`, lue par le format de
-`choose-tree`. Le script tourne :
-- **toutes les 5 s** via la status bar (`#(...)`), ce qui garde `@cc_state` à jour ;
-- **juste avant** chaque `choose-tree` (pour une fraîcheur immédiate).
+| Événement Claude Code | → état |
+|---|---|
+| `UserPromptSubmit`, `PreToolUse` | `work` |
+| `PermissionRequest` | `waiting` (Claude bloqué sur une permission — **100 % fiable**) |
+| `Stop` | `idle` |
+| `SessionEnd` | supprime le fichier |
 
-Pas de daemon, pas de polling permanent au-delà du rafraîchissement status.
+Configuré par [`setup-hooks.sh`](setup-hooks.sh), qui **fusionne** ces hooks dans
+`~/.claude/settings.json` sans toucher aux hooks existants.
+
+### Couche B — Heuristique titre/contenu (fallback universel, sans hooks)
+Claude écrit aussi l'état dans le **titre du pane** :
+- `✳ …` → tour terminé : au repos **ou** en attente (le titre ne distingue pas !) ;
+- `⠐ ⠂ ⠄ …` (braille animé) → spinner = `work` ;
+- titre vide / hostname → `shell`.
+
+Pour les panes `✳`, le script [`scripts/cc-states.sh`](scripts/cc-states.sh) **capture
+le contenu** et cherche deux signaux d'attente :
+1. un **prompt interactif** (`Esc to cancel`, `❯ 1.`, `Do you want`) → `waiting` ;
+2. la **dernière prose de Claude se terminant par une question** (`?`) → `waiting`
+   (couvre « j'ai fait X, tu veux que je continue ? »).
+
+### Pourquoi les deux ?
+Le cas **« tour fini par une question libre »** n'est détectable par **aucun hook** :
+`Stop` se déclenche de la même façon que Claude ait fini ou qu'il attende une réponse
+à sa question. C'est une vraie lacune de l'API (→ *feature request* à Anthropic),
+couverte ici par l'heuristique (B). Les hooks (A) apportent un `waiting` fiable et
+instantané sur les **permissions**, et un `work`/`idle` événementiel.
+
+> ℹ️ En pratique, Claude Code recharge sa config à chaud : les hooks s'activent
+> **immédiatement**, y compris pour les sessions déjà ouvertes. Et même si un hook
+> manquait, la couche B (heuristique) prend toujours le relais.
+
+Le résultat est stocké dans l'option window `@cc_state`, lue par `choose-tree`. Le
+script tourne **toutes les 5 s** (status bar) et **juste avant** chaque `choose-tree`.
+Pas de daemon ni de polling permanent au-delà du rafraîchissement status.
 
 ---
 
@@ -66,6 +93,9 @@ Pas de daemon, pas de polling permanent au-delà du rafraîchissement status.
 ### Prérequis
 - **tmux ≥ 3.2** (testé sur 3.5a) — nécessaire pour `#{?}`, `#{m:}`, options `@user`.
 - **git**, **bash**, **awk** (présents par défaut sur macOS / Linux).
+- **jq** — uniquement pour la couche hooks (`setup-hooks.sh`). Sans lui, l'install
+  continue et la détection heuristique fonctionne quand même.
+- **Claude Code** — pour la couche hooks (facultative).
 - Un terminal gérant les attributs `blink` et les glyphes Unicode (iTerm2, Kitty,
   WezTerm, Alacritty…).
 
@@ -80,7 +110,12 @@ L'installeur :
 1. sauvegarde un éventuel `~/.tmux.conf` existant (`.bak.<timestamp>`) ;
 2. crée des **liens symboliques** vers ce repo (`~/.tmux.conf`,
    `~/.tmux/scripts/cc-states.sh`, `~/.tmux/scripts/cc-jump.sh`) ;
-3. installe **tpm** (tmux Plugin Manager) si absent.
+3. installe **tpm** (tmux Plugin Manager) si absent ;
+4. lance `setup-hooks.sh` (couche hooks Claude Code) — non bloquant si `jq` manque.
+
+> La couche hooks est facultative : tu peux relancer `./setup-hooks.sh` seul à tout
+> moment, et la désactiver en retirant les entrées `cc-state-hook.sh` de
+> `~/.claude/settings.json` (une sauvegarde `.bak.*` est créée à chaque run).
 
 Puis, dans tmux :
 ```
@@ -140,9 +175,12 @@ Aucun plugin de thème : Catppuccin est appliqué manuellement.
 tmux-claude-theme/
 ├── tmux.conf            # la configuration (-> ~/.tmux.conf)
 ├── scripts/
-│   ├── cc-states.sh     # classifie les windows + imprime le badge status bar
+│   ├── cc-states.sh     # classifie les windows (hooks + heuristique) + badge status bar
 │   └── cc-jump.sh       # prefix + a : saute à la prochaine session en attente
-├── install.sh           # liens symboliques + tpm
+├── hooks/
+│   └── cc-state-hook.sh # hook Claude Code -> écrit ~/.claude/state/<pane_id>
+├── setup-hooks.sh       # fusionne les hooks dans ~/.claude/settings.json (idempotent)
+├── install.sh           # liens symboliques + tpm + setup-hooks
 └── README.md
 ```
 

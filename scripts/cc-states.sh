@@ -3,54 +3,71 @@
 # stocke le résultat dans l'option window @cc_state (lue par choose-tree),
 # ET imprime sur stdout un badge récapitulatif pour la status bar.
 #
-# États :
-#   waiting -> Claude attend une réponse de TA part
-#   work    -> Claude travaille (spinner braille animé dans le titre)
-#   idle    -> Claude a fini / au repos (✳ mais rien en attente)
-#   shell   -> pas de session Claude (shell zsh/bash)
+# États : waiting | work | idle | shell
 #
-# Le titre seul ne distingue pas waiting d'idle (les deux montrent ✳). Pour les
-# panes ✳ on capture l'écran et on cherche deux signaux d'attente :
-#   1) prompt interactif explicite (menu / confirmation) -> certain
-#   2) dernière prose de Claude se terminant par une question (« ? ») -> probable
-# (1) couvre les sélecteurs ; (2) couvre « j'ai fait X, tu veux que je continue ? ».
+# Deux sources, combinées (la plus fiable d'abord) :
+#  A) HOOKS Claude Code -> fichier ~/.claude/state/<pane_id> (voir hooks/cc-state-hook.sh
+#     + setup-hooks.sh). Donne un signal `waiting` fiable et instantané sur les
+#     demandes de PERMISSION. Présent seulement pour les sessions démarrées après
+#     l'installation des hooks.
+#  B) HEURISTIQUE titre/contenu (fallback universel, marche sans hooks) :
+#     - titre braille animé        -> work
+#     - titre vide / shell zsh      -> shell
+#     - titre ✳ -> tour terminé : on regarde le contenu pour distinguer
+#         * menu interactif (Esc to cancel / ❯ 1.)         -> waiting
+#         * dernière prose finissant par une question « ? » -> waiting (probable)
+#         * sinon                                            -> idle
+#
+# Le cas « tour fini par une question libre » n'est PAS distinguable par les hooks
+# (Stop se déclenche pareil que la session soit finie ou en attente d'une réponse) :
+# c'est la lacune signalée à Anthropic, couverte ici par l'heuristique (B).
 #
 # Double usage :
 #   - bind w/s : run-shell "...cc-states.sh >/dev/null"  -> pose @cc_state avant choose-tree
-#   - status-right : #(...cc-states.sh)                  -> rafraîchit + affiche le badge (toutes les 5s)
+#   - status-right : #(...cc-states.sh)                  -> rafraîchit + badge (toutes les 5s)
 
 set -u
 
+STATE_DIR="$HOME/.claude/state"
 waiting=0
 work=0
 
-# IMPORTANT : process substitution (et non un pipe) pour que les compteurs
-# survivent — un « ... | while » exécuterait la boucle dans un sous-shell.
-while IFS='|' read -r sess idx cmd title; do
+# Heuristique « tour fini par une question » sur le contenu d'un pane.
+# Renvoie 0 (vrai) si la dernière prose de Claude contient un « ? ».
+ended_is_question() {
+  printf '%s\n' "$1" \
+    | grep -vE '^[[:space:]]*[─❯✻※✔◼◻☐•]' \
+    | grep -vE '🤖|💰|Model:|cwd:|Context:|Ctx\(u\)|Weekly:|auto mode|[0-9]+ tasks|/goal|Session:|Cost:' \
+    | grep -vE '^[[:space:]]*$' \
+    | tail -3 | grep -q '?'
+}
+
+# IMPORTANT : process substitution (et non un pipe) pour que les compteurs survivent.
+while IFS='|' read -r sess idx pane cmd title; do
+  # État éventuel posé par les hooks Claude Code pour ce pane.
+  hookstate=""
+  [ -r "$STATE_DIR/$pane" ] && hookstate="$(head -1 "$STATE_DIR/$pane" 2>/dev/null)"
+
   case "$title" in
-    "✳"*)
-      # ✳ = Claude au repos OU en attente d'input. On capture l'écran visible et on
-      # cherche DEUX signaux d'attente (du plus sûr au plus heuristique) :
-      content="$(tmux capture-pane -t "${sess}:${idx}" -p 2>/dev/null)"
-      if printf '%s' "$content" | grep -qE 'Esc to cancel|Enter to select|Do you want|❯ [0-9]'; then
-        # 1) Prompt interactif explicite (menu / confirmation) -> attente CERTAINE.
-        state="waiting"; waiting=$((waiting + 1))
-      elif printf '%s\n' "$content" \
-            | grep -vE '^[[:space:]]*[─❯✻※✔◼◻☐•]' \
-            | grep -vE '🤖|💰|Model:|cwd:|Context:|Ctx\(u\)|Weekly:|auto mode|[0-9]+ tasks|/goal|Session:|Cost:' \
-            | grep -vE '^[[:space:]]*$' \
-            | tail -3 | grep -q '?'; then
-        # 2) Claude a fini son tour par une QUESTION en texte libre (prompt vide).
-        #    On isole sa dernière prose (hors UI/status/tasklist) et on cherche un « ? »
-        #    dans les 3 dernières lignes -> attente PROBABLE. Erreur volontairement
-        #    du côté « signaler » : mieux vaut un faux waiting qu'un waiting manqué.
-        state="waiting"; waiting=$((waiting + 1))
-      else
-        state="idle"
-      fi
-      ;;
     "")
+      # Titre vide -> shell (on ignore un éventuel fichier d'état périmé).
       state="shell"
+      ;;
+    "✳"*)
+      # Tour terminé (idle OU en attente). Hook `waiting` (permission) = fiable.
+      if [ "$hookstate" = "waiting" ]; then
+        state="waiting"; waiting=$((waiting + 1))
+      elif [ "$hookstate" = "work" ]; then
+        state="work"; work=$((work + 1))
+      else
+        content="$(tmux capture-pane -t "${sess}:${idx}" -p 2>/dev/null)"
+        if printf '%s' "$content" | grep -qE 'Esc to cancel|Enter to select|Do you want|❯ [0-9]' \
+           || ended_is_question "$content"; then
+          state="waiting"; waiting=$((waiting + 1))
+        else
+          state="idle"
+        fi
+      fi
       ;;
     *)
       # Titre non vide ne commençant pas par ✳.
@@ -61,8 +78,9 @@ while IFS='|' read -r sess idx cmd title; do
       esac
       ;;
   esac
+
   tmux set -w -t "${sess}:${idx}" @cc_state "$state"
-done < <(tmux list-windows -a -F '#{session_name}|#{window_index}|#{pane_current_command}|#{pane_title}')
+done < <(tmux list-windows -a -F '#{session_name}|#{window_index}|#{pane_id}|#{pane_current_command}|#{pane_title}')
 
 # Badge status bar : rien quand il n'y a personne en attente / au travail.
 # - waiting : pastille rouge pleine + clignotement (impossible à louper)

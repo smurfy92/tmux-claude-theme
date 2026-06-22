@@ -37,6 +37,16 @@ else
   echo "→ tpm déjà présent"
 fi
 
+# Hooks Claude Code (signal d'état fiable). Optionnel : nécessite jq et modifie
+# ~/.claude/settings.json (avec backup). Non bloquant si ça échoue — l'heuristique
+# titre/contenu prend le relais.
+echo "→ Hooks Claude Code (état des sessions)"
+if "$REPO_DIR/setup-hooks.sh"; then
+  :
+else
+  echo "  ⚠ hooks non configurés (jq manquant ?) — la détection de base fonctionne quand même"
+fi
+
 echo ""
 echo "✓ Installé. Étapes finales :"
 echo "  1) Ouvre tmux (ou recharge :  tmux source-file ~/.tmux.conf )"
