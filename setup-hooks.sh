@@ -25,25 +25,29 @@ echo "→ lien hook : $HOOK_DST -> $HOOK_SRC"
 cp "$SETTINGS" "$SETTINGS.bak.$(date +%Y%m%d-%H%M%S)"
 
 # 3. Merge idempotent, un (événement -> état) à la fois.
+#    On RETIRE toute entrée cc-state-hook préexistante puis on ré-ajoute la courante
+#    -> relançable et met à jour la commande (ex: ajout du flag refresh).
 add_hook() {
-  event="$1"; state="$2"
+  event="$1"; state="$2"; refresh="${3:-}"
+  cmd="$HOOK_DST $state"
+  [ -n "$refresh" ] && cmd="$cmd refresh"
   tmp="$(mktemp)"
-  jq --arg ev "$event" --arg cmd "$HOOK_DST $state" '
+  jq --arg ev "$event" --arg cmd "$cmd" '
     .hooks //= {} | .hooks[$ev] //= [] |
-    ([ .hooks[$ev][].hooks[]?.command? // empty ] | any(test("cc-state-hook.sh"))) as $exists |
-    if $exists then .
-    else .hooks[$ev] += [ { matcher: "", hooks: [ { type: "command", command: $cmd, timeout: 5, async: true } ] } ]
-    end
+    .hooks[$ev] = (
+      [ .hooks[$ev][] | select( any((.hooks // [])[]?; (.command? // "") | test("cc-state-hook.sh")) | not ) ]
+      + [ { matcher: "", hooks: [ { type: "command", command: $cmd, timeout: 5, async: true } ] } ]
+    )
   ' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
-  echo "  $event -> $state"
+  echo "  $event -> $cmd"
 }
 
 echo "→ merge hooks dans $SETTINGS"
-add_hook UserPromptSubmit work
+add_hook UserPromptSubmit work    refresh
 add_hook PreToolUse        work
-add_hook PermissionRequest waiting
-add_hook Stop              idle
-add_hook SessionEnd        end
+add_hook PermissionRequest waiting refresh
+add_hook Stop              idle    refresh
+add_hook SessionEnd        end     refresh
 
 # 4. Valider le JSON résultant.
 if jq empty "$SETTINGS" 2>/dev/null; then

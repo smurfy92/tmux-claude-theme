@@ -51,10 +51,17 @@ Claude Code déclenche des *hooks* qui héritent de l'environnement du terminal 
 
 | Événement Claude Code | → état |
 |---|---|
-| `UserPromptSubmit`, `PreToolUse` | `work` |
-| `PermissionRequest` | `waiting` (Claude bloqué sur une permission — **100 % fiable**) |
-| `Stop` | `idle` |
-| `SessionEnd` | supprime le fichier |
+| `UserPromptSubmit` | `work` + **push** |
+| `PreToolUse` | `work` (sans push — trop fréquent) |
+| `PermissionRequest` | `waiting` + **push** (Claude bloqué sur une permission — **100 % fiable**) |
+| `Stop` | `idle` + **push** |
+| `SessionEnd` | supprime le fichier + **push** |
+
+**Mode push** : sur les transitions marquées **push**, le hook appelle
+`tmux refresh-client -S`, ce qui ré-exécute le `#()` de la status bar
+**immédiatement** — le badge se met à jour en ~100 ms au lieu d'attendre le cycle
+de 5 s. `PreToolUse` (qui se déclenche des dizaines de fois par tour) est
+volontairement exclu du push pour éviter une tempête de rafraîchissements.
 
 Configuré par [`setup-hooks.sh`](setup-hooks.sh), qui **fusionne** ces hooks dans
 `~/.claude/settings.json` sans toucher aux hooks existants.
@@ -83,7 +90,8 @@ instantané sur les **permissions**, et un `work`/`idle` événementiel.
 > manquait, la couche B (heuristique) prend toujours le relais.
 
 Le résultat est stocké dans l'option window `@cc_state`, lue par `choose-tree`. Le
-script tourne **toutes les 5 s** (status bar) et **juste avant** chaque `choose-tree`.
+script tourne **toutes les 5 s** (status bar), **juste avant** chaque `choose-tree`,
+et **à la demande** quand un hook déclenche un push (voir mode push ci-dessus).
 Pas de daemon ni de polling permanent au-delà du rafraîchissement status.
 
 ---

@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Hook Claude Code -> écrit l'état de la session dans ~/.claude/state/<pane>.
 #
-# L'état voulu est passé en argument ($1) par la config settings.json :
-#   work | waiting | idle | end
+# Arguments (depuis settings.json) :
+#   $1 = état voulu : work | waiting | idle | end
+#   $2 = "refresh" (optionnel) -> force la status bar tmux à se rafraîchir TOUT DE
+#        SUITE (mode push), au lieu d'attendre le cycle de 5 s. À ne mettre que sur
+#        les transitions qui changent le badge (pas sur PreToolUse, trop fréquent).
 # Le pane tmux est identifié via $TMUX_PANE (hérité de l'environnement du
 # terminal où tourne Claude Code). Hors tmux -> on ne fait rien.
 #
@@ -40,5 +43,13 @@ case "$state" in
     : # argument inconnu -> no-op
     ;;
 esac
+
+# Mode push : rafraîchit la status bar de tous les clients attachés immédiatement.
+# (refresh-client -S re-exécute le #() de la status bar -> cc-states.sh tourne.)
+if [ "${2:-}" = "refresh" ]; then
+  tmux list-clients -F '#{client_name}' 2>/dev/null | while IFS= read -r c; do
+    tmux refresh-client -S -t "$c" 2>/dev/null || true
+  done
+fi
 
 exit 0
