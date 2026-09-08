@@ -37,7 +37,7 @@ work=0
 ended_is_question() {
   printf '%s\n' "$1" \
     | grep -vE '^[[:space:]]*[─❯✻※✔◼◻☐•]' \
-    | grep -vE '🤖|💰|Model:|cwd:|Context:|Ctx\(u\)|Weekly:|auto mode|[0-9]+ tasks|/goal|Session:|Cost:' \
+    | grep -vE '🤖|💰|Model:|cwd:|Context:|Ctx\(u\)|Weekly:|auto mode|[0-9]+ tasks|/goal|Session:|Cost:|for shortcuts|to navigate|to select|to cancel|How is Claude doing|Tips for getting started|Whats new|release-notes' \
     | grep -vE '^[[:space:]]*$' \
     | tail -3 | grep -q '?'
 }
@@ -54,15 +54,25 @@ while IFS='|' read -r sess idx pane cmd title; do
       state="shell"
       ;;
     "✳"*)
-      # Tour terminé (idle OU en attente). Hook `waiting` (permission) = fiable.
+      # Tour terminé. Ordre de confiance :
+      #   1. hook waiting/work  -> fiable, on prend tel quel.
+      #   2. MENU interactif à l'écran (Esc to cancel / ❯ 1. …) -> vraie attente
+      #      bloquante, prime même sur un hook `idle` (un menu est réellement ouvert).
+      #   3. hook idle  -> Stop/SessionStart fiable : idle. On NE se fie PLUS au simple
+      #      « ? » (faux positifs : « ? for shortcuts », question déjà répondue…).
+      #   4. aucun hook (session hors périmètre) -> fallback : prose finissant par
+      #      « ? » = attente probable.
       if [ "$hookstate" = "waiting" ]; then
         state="waiting"; waiting=$((waiting + 1))
       elif [ "$hookstate" = "work" ]; then
         state="work"; work=$((work + 1))
       else
         content="$(tmux capture-pane -t "${sess}:${idx}" -p 2>/dev/null)"
-        if printf '%s' "$content" | grep -qE 'Esc to cancel|Enter to select|Do you want|❯ [0-9]' \
-           || ended_is_question "$content"; then
+        if printf '%s' "$content" | grep -qE 'Esc to cancel|Enter to select|Do you want|❯ [0-9]'; then
+          state="waiting"; waiting=$((waiting + 1))
+        elif [ "$hookstate" = "idle" ]; then
+          state="idle"
+        elif ended_is_question "$content"; then
           state="waiting"; waiting=$((waiting + 1))
         else
           state="idle"

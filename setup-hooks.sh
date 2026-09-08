@@ -47,6 +47,7 @@ add_hook UserPromptSubmit work    refresh
 add_hook PreToolUse        work
 add_hook PermissionRequest waiting refresh
 add_hook Stop              idle    refresh
+add_hook SessionStart      idle    refresh
 add_hook SessionEnd        end     refresh
 
 # 4. Valider le JSON résultant.

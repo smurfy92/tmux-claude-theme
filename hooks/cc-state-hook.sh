@@ -17,6 +17,7 @@
 #   UserPromptSubmit, PreToolUse -> work
 #   PermissionRequest            -> waiting
 #   Stop                         -> idle
+#   SessionStart (startup/resume/clear/compact) -> idle (reset après /clear)
 #   SessionEnd                   -> end (supprime le fichier)
 
 set -u
