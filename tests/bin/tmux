@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Faux tmux pour test.sh : répond aux sous-commandes utilisées par cc-states.sh
+# à partir des fixtures de $CC_FIXTURE. Tout le reste est un no-op.
+#
+#   list-windows … -> tests/fixtures/<cas>/windows.txt
+#                     (format : session|index|pane_id|commande|titre)
+#   list-panes   … -> colonne pane_id de windows.txt
+#   capture-pane -t S:I -p -> tests/fixtures/<cas>/screens/<pane_id>.txt
+#   set -w -t S:I @cc_state X -> ajoute "S:I=X" à $CC_RESULT
+set -u
+fix="${CC_FIXTURE:?}"
+case "${1:-}" in
+  list-windows) cat "$fix/windows.txt" ;;
+  list-panes)   cut -d'|' -f3 "$fix/windows.txt" ;;
+  capture-pane)
+    target="$3"
+    pane="$(awk -F'|' -v t="$target" '$1":"$2==t{print $3}' "$fix/windows.txt")"
+    [ -r "$fix/screens/$pane.txt" ] && cat "$fix/screens/$pane.txt"
+    ;;
+  set) printf '%s=%s\n' "$4" "$6" >> "${CC_RESULT:?}" ;;
+  *) : ;;
+esac
+exit 0

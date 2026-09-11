@@ -1,0 +1,5 @@
+#[fg=#1e1e2e]#[bg=#f38ba8]#[bold]#[blink] ◆ 1 #[default] #[fg=#fab387]◐ 2#[default] 
+a:0=shell
+a:1=work
+b:0=waiting
+b:3=work

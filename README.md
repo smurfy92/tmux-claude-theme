@@ -193,10 +193,28 @@ tmux-claude-theme/
 │   └── cc-state-hook.sh # hook Claude Code -> écrit ~/.claude/state/<pane_id>
 ├── setup-hooks.sh       # fusionne les hooks dans ~/.claude/settings.json (idempotent)
 ├── install.sh           # liens symboliques + tpm + setup-hooks
+├── test.sh              # tests de cc-states.sh sur fixtures (faux tmux, sans serveur)
+├── tests/
+│   ├── bin/tmux         # le faux tmux lu par test.sh
+│   └── fixtures/<cas>/  # windows.txt, screens/, state/, expected.txt
+├── .github/workflows/ci.yml  # shellcheck + test.sh
 └── README.md
 ```
 
 ---
+
+## 🧪 Tests
+
+```bash
+./test.sh          # 12 cas : les 4 états, question libre, menu, hook périmé, purge, lien cassé
+shellcheck scripts/*.sh hooks/*.sh install.sh setup-hooks.sh test.sh tests/bin/tmux
+```
+
+`test.sh` ne touche pas au serveur tmux : un faux `tmux` (`tests/bin/tmux`) est placé
+en tête du `PATH` et répond à partir de `tests/fixtures/<cas>/`. Chaque cas décrit ses
+windows (`windows.txt`), le contenu affiché des panes (`screens/`), les fichiers de
+hook (`state/`, `NOW-<n>` = il y a *n* secondes) et le résultat attendu (`expected.txt` :
+badge puis `@cc_state` par window). La CI GitHub rejoue les deux commandes.
 
 ## Licence
 

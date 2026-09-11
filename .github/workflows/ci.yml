@@ -1,0 +1,16 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck scripts/*.sh hooks/*.sh install.sh setup-hooks.sh test.sh tests/bin/tmux
+      - name: tests sur fixtures
+        run: ./test.sh
