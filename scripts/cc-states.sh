@@ -39,6 +39,20 @@ work=0
 hook_broken=0
 [ -L "$HOOK_DST" ] && [ ! -x "$HOOK_DST" ] && hook_broken=1
 
+# Purge des fichiers d'état orphelins : le hook `end` les supprime à la fin propre
+# d'une session, mais un crash ou un pane tué laisse des restes. On retire ceux
+# dont le pane n'existe plus dans le serveur tmux.
+if [ -d "$STATE_DIR" ]; then
+  live_panes=" $(tmux list-panes -a -F '#{pane_id}' 2>/dev/null | tr '\n' ' ') "
+  for f in "$STATE_DIR"/%*; do
+    [ -e "$f" ] || continue
+    case "$live_panes" in
+      *" ${f##*/} "*) ;;
+      *) rm -f "$f" ;;
+    esac
+  done
+fi
+
 # Heuristique « tour fini par une question » sur le contenu d'un pane.
 # Renvoie 0 (vrai) si la dernière prose de Claude contient un « ? ».
 ended_is_question() {
