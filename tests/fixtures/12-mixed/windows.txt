@@ -1,0 +1,4 @@
+a|0|%1|zsh|
+a|1|%2|claude|⠙ Working
+b|0|%3|claude|✳ Done
+b|3|%4|claude|✳ Done

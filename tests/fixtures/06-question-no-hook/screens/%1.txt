@@ -1,0 +1,3 @@
+Voici le résumé des changements.
+
+Veux-tu que je continue avec la CI ?

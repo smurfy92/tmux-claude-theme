@@ -1,0 +1,2 @@
+#[fg=#fab387]◐ 1#[default] 
+s:0=work

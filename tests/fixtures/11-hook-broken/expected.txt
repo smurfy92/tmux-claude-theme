@@ -1,0 +1,2 @@
+#[fg=#f9e2af]#[bold]⚠ hook#[nobold]#[default] 
+s:0=shell
