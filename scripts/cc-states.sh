@@ -29,8 +29,15 @@
 set -u
 
 STATE_DIR="$HOME/.claude/state"
+HOOK_DST="$HOME/.claude/hooks/cc-state-hook.sh"
 waiting=0
 work=0
+
+# Garde-fou : si le lien du hook est cassé (ex. dépôt déplacé), les hooks Claude
+# Code échouent en silence et les états se figent sans qu'on s'en aperçoive.
+# On l'affiche dans la barre plutôt que de laisser dériver (-x suit le symlink).
+hook_broken=0
+[ -L "$HOOK_DST" ] && [ ! -x "$HOOK_DST" ] && hook_broken=1
 
 # Heuristique « tour fini par une question » sur le contenu d'un pane.
 # Renvoie 0 (vrai) si la dernière prose de Claude contient un « ? ».
@@ -98,4 +105,5 @@ done < <(tmux list-windows -a -F '#{session_name}|#{window_index}|#{pane_id}|#{p
 out=""
 [ "$waiting" -gt 0 ] && out="#[fg=#1e1e2e]#[bg=#f38ba8]#[bold]#[blink] ◆ ${waiting} #[default] "
 [ "$work"    -gt 0 ] && out="${out}#[fg=#fab387]◐ ${work}#[default] "
+[ "$hook_broken" -eq 1 ] && out="${out}#[fg=#f9e2af]#[bold]⚠ hook#[nobold]#[default] "
 printf '%s' "$out"

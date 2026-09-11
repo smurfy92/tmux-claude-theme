@@ -121,6 +121,10 @@ L'installeur :
 3. installe **tpm** (tmux Plugin Manager) si absent ;
 4. lance `setup-hooks.sh` (couche hooks Claude Code) — non bloquant si `jq` manque.
 
+> **Dépôt déplacé ?** Les liens (`~/.tmux/scripts/*`, `~/.claude/hooks/cc-state-hook.sh`)
+> sont absolus : si tu déplaces ce dossier, relance `./install.sh`. Un lien de hook
+> cassé fait échouer les hooks en silence ; la status bar affiche alors `⚠ hook`.
+
 > La couche hooks est facultative : tu peux relancer `./setup-hooks.sh` seul à tout
 > moment, et la désactiver en retirant les entrées `cc-state-hook.sh` de
 > `~/.claude/settings.json` (une sauvegarde `.bak.*` est créée à chaque run).
