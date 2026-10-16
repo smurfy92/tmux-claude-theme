@@ -33,8 +33,8 @@ Quand une session Claude Code déclare un **périmètre** (un groupe de sessions
 travaillent sur le même sujet), le thème l'affiche sur trois surfaces :
 - **l'onglet** de la window courante : `3:intersession ⟨jules⟩` ;
 - **`prefix + w` / `prefix + s`** : `⟨jules⟩` juste après le badge d'état ;
-- **la status bar**, à droite : un badge lavande `jules 2 · janus 1` (nombre de
-  sessions vivantes par périmètre), placé avant les compteurs `◆` / `◐`.
+- **la status bar**, à droite : un badge lavande `janus 1 · jules 2` (nombre de
+  sessions vivantes par périmètre, triés par nom), placé avant les compteurs `◆` / `◐`.
 
 Sans le plugin, ou si aucune session ne déclare de périmètre, rien ne s'affiche.
 Détails : [Périmètre intersession](#-périmètre-intersession).
@@ -122,29 +122,35 @@ options tmux :
 | `@cc_perimeter_pid` | PID de la session Claude Code |
 
 Le thème **ne fait que lire** ces options, à chaque passage de
-[`scripts/cc-states.sh`](scripts/cc-states.sh).
+[`scripts/cc-states.sh`](scripts/cc-states.sh). Elles sont **de portée pane
+uniquement** (`set -p`) : posée au niveau window, session ou global, une valeur serait
+héritée par chaque pane de ce niveau et le plugin ne pourrait pas la retirer en
+nettoyant ses propres panes.
 
 **Règle d'affichage : jamais de valeur poussée affichée sans vérification.** Un pane
 n'est retenu que si son nom est conforme **et** si son PID est **vivant** (`kill -0`,
 repli sur `ps -p` pour un processus d'un autre utilisateur). Le calcul est refait
-**toutes les 5 s** (et avant chaque `choose-tree`) : une session morte, ou dont le
-périmètre a été retiré, cesse d'afficher son périmètre au passage suivant, même si
-l'option est restée sur le pane. Un nom hors charte est ignoré, ce qui évite aussi
-toute injection de format dans la status bar.
+**toutes les 5 s** (et avant chaque `choose-tree`). Une session morte cesse d'afficher
+son périmètre au passage suivant, même si l'option est restée sur le pane. Un
+périmètre retiré ou changé par le plugin est repris au passage suivant ; si le plugin
+n'a pas pu l'écrire, sa réconciliation corrige au prochain prompt. Un nom hors charte
+est ignoré, ce qui évite aussi toute injection de format dans la status bar.
 
 Le résultat est stocké dans l'option window `@cc_perimeter_ok` (format `⟨jules⟩`, ou
-`⟨jules⟩ ⟨janus⟩` si une window scindée porte plusieurs périmètres), posée ou retirée
-sur **chaque** window à chaque passage.
+`⟨jules⟩ ⟨janus⟩` si une window scindée porte plusieurs périmètres, chaque nom une
+seule fois), posée ou retirée sur **chaque** window à chaque passage, en un seul appel
+tmux. Un pane listé par plusieurs sessions groupées n'est compté qu'une fois dans le
+badge.
 
 | Surface | Rendu |
 |---|---|
 | Onglet de la window courante | `3:intersession ⟨jules⟩` |
 | `prefix + w` / `prefix + s` | `⟨jules⟩` après le badge d'état, avant le nom de la window |
-| Status bar (droite) | badge lavande `jules 2 · janus 1`, absent si aucune session n'a de périmètre |
+| Status bar (droite) | badge lavande `janus 1 · jules 2` (triés par nom), absent si aucune session n'a de périmètre |
 
-> ⚠️ Dans `choose-tree -s` (vue par sessions), l'option window doit se résoudre via la
-> window courante de la session. Si `⟨jules⟩` n'y apparaît pas, seuls `prefix + w` et
-> l'onglet le portent (à confirmer au premier usage).
+> Dans `choose-tree -s` (vue par sessions), une ligne de session résout l'option via la
+> **window courante** de la session : elle n'affiche que le périmètre de cette window.
+> Les lignes de pane héritent de la valeur de leur window (vérifié sur tmux 3.5a).
 
 **Le thème fonctionne sans le plugin** : sans option `@cc_perimeter`, aucun périmètre
 n'est affiché et rien d'autre ne change.
@@ -251,7 +257,7 @@ tmux-claude-theme/
 ├── test.sh              # tests de cc-states.sh sur fixtures (faux tmux, sans serveur)
 ├── tests/
 │   ├── bin/tmux         # le faux tmux lu par test.sh
-│   └── fixtures/<cas>/  # windows.txt, screens/, state/, expected.txt
+│   └── fixtures/<cas>/  # windows.txt, panes.txt, screens/, state/, expected.txt
 ├── .github/workflows/ci.yml  # shellcheck + test.sh
 └── README.md
 ```
@@ -261,15 +267,19 @@ tmux-claude-theme/
 ## 🧪 Tests
 
 ```bash
-./test.sh          # 17 cas : les 4 états, question libre, menu, hook périmé, purge, lien cassé, périmètre (13–17)
+./test.sh          # 20 cas : les 4 états, question libre, menu, hook périmé, purge, lien cassé, périmètre (13–20)
 shellcheck scripts/*.sh hooks/*.sh install.sh setup-hooks.sh test.sh tests/bin/tmux
 ```
 
 `test.sh` ne touche pas au serveur tmux : un faux `tmux` (`tests/bin/tmux`) est placé
 en tête du `PATH` et répond à partir de `tests/fixtures/<cas>/`. Chaque cas décrit ses
 windows (`windows.txt`), le contenu affiché des panes (`screens/`), les fichiers de
-hook (`state/`, `NOW-<n>` = il y a *n* secondes) et le résultat attendu (`expected.txt` :
-badge puis `@cc_state` par window). La CI GitHub rejoue les deux commandes.
+hook (`state/`, `NOW-<n>` = il y a *n* secondes), les options de périmètre des panes
+(`panes.txt`, optionnel : lignes `session:index|pane_id|périmètre|pid`, où `ALIVE`
+devient un PID vivant et `DEAD` un PID jamais vivant) et le résultat attendu
+(`expected.txt` : badge, puis les lignes triées `S:I=état` pour `@cc_state` et, pour un
+cas avec `panes.txt`, `S:I option=valeur` — valeur vide pour une option retirée). La CI
+GitHub rejoue les deux commandes.
 
 ## Licence
 
