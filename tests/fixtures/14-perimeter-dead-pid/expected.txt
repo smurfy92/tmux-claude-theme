@@ -1,0 +1,5 @@
+
+a:1 @cc_perimeter_ok=
+a:1=idle
+a:2 @cc_perimeter_ok=
+a:2=idle

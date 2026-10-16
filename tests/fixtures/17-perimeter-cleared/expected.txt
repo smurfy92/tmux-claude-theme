@@ -1,0 +1,5 @@
+#[fg=#1e1e2e]#[bg=#b4befe] jules 1 #[default] 
+a:1 @cc_perimeter_ok=⟨jules⟩
+a:1=idle
+a:2 @cc_perimeter_ok=
+a:2=idle
