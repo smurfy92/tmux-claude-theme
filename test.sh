@@ -7,7 +7,11 @@
 #   screens/<pane>.txt   contenu affiché du pane (optionnel)
 #   state/<pane>     fichiers de hook, « NOW-<n> » remplacé par l'epoch courant - n
 #   hook-broken      (marqueur) simule un lien de hook cassé
-#   expected.txt     badge attendu (ligne 1) puis « S:I=état » triés
+#   panes.txt        lignes session:index|pane_id|périmètre|pid (optionnel) ;
+#                    « ALIVE » devient le PID de ce script (vivant), « DEAD » un PID
+#                    hors plage usuelle (jamais vivant)
+#   expected.txt     badge attendu (ligne 1) puis « S:I=état » et, pour un cas avec
+#                    panes.txt, « S:I option=valeur », triés
 #
 # Usage : ./test.sh            (exit 1 si un cas échoue)
 
@@ -34,6 +38,15 @@ for dir in "$ROOT"/tests/fixtures/*/; do
     done
   fi
   [ -e "$dir/hook-broken" ] && ln -s /nonexistent "$HOME/.claude/hooks/cc-state-hook.sh"
+
+  # Options de pane du cas : le faux tmux les sert à `list-panes`.
+  unset CC_FIXTURE_PANES
+  if [ -e "$dir/panes.txt" ]; then
+    awk -F'|' -v OFS='|' -v alive="$$" -v dead=2147483000 \
+      '$4 == "ALIVE" { $4 = alive } $4 == "DEAD" { $4 = dead } { print }' \
+      "$dir/panes.txt" > "$tmp/panes.txt"
+    export CC_FIXTURE_PANES="$tmp/panes.txt"
+  fi
 
   badge="$("$ROOT/scripts/cc-states.sh")"
   { printf '%s\n' "$badge"; sort "$CC_RESULT"; } > "$tmp/actual"

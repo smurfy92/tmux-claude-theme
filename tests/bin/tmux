@@ -4,20 +4,43 @@
 #
 #   list-windows … -> tests/fixtures/<cas>/windows.txt
 #                     (format : session|index|pane_id|commande|titre)
-#   list-panes   … -> colonne pane_id de windows.txt
+#   list-panes -a -F '#{pane_id}' -> colonne pane_id de windows.txt (purge des orphelins)
+#   list-panes -a -F <autre format> -> $CC_FIXTURE_PANES si défini (panes.txt préparé
+#                     par test.sh, format session:index|pane_id|périmètre|pid),
+#                     sinon colonne pane_id de windows.txt
 #   capture-pane -t S:I -p -> tests/fixtures/<cas>/screens/<pane_id>.txt
 #   set -w -t S:I @cc_state X -> ajoute "S:I=X" à $CC_RESULT
+#   set -w -t S:I <option> X  -> ajoute "S:I <option>=X"
+#   set -wu -t S:I <option>   -> ajoute "S:I <option>=" (valeur vide)
+# Les options autres que @cc_state ne sont enregistrées que pour un cas qui fournit
+# panes.txt : les cas antérieurs au périmètre gardent leur expected.txt inchangé.
 set -u
 fix="${CC_FIXTURE:?}"
 case "${1:-}" in
   list-windows) cat "$fix/windows.txt" ;;
-  list-panes)   cut -d'|' -f3 "$fix/windows.txt" ;;
+  list-panes)
+    if [ "${4:-}" != '#{pane_id}' ] && [ -n "${CC_FIXTURE_PANES:-}" ]; then
+      cat "$CC_FIXTURE_PANES"
+    else
+      cut -d'|' -f3 "$fix/windows.txt"
+    fi
+    ;;
   capture-pane)
     target="$3"
     pane="$(awk -F'|' -v t="$target" '$1":"$2==t{print $3}' "$fix/windows.txt")"
     [ -r "$fix/screens/$pane.txt" ] && cat "$fix/screens/$pane.txt"
     ;;
-  set) printf '%s=%s\n' "$4" "$6" >> "${CC_RESULT:?}" ;;
+  set)
+    target="$4"; option="${5:-}"
+    if [ "$option" = "@cc_state" ]; then
+      printf '%s=%s\n' "$target" "${6:-}" >> "${CC_RESULT:?}"
+    elif [ -n "${CC_FIXTURE_PANES:-}" ]; then
+      case "$2" in
+        -wu) printf '%s %s=\n' "$target" "$option" >> "${CC_RESULT:?}" ;;
+        *)   printf '%s %s=%s\n' "$target" "$option" "${6:-}" >> "${CC_RESULT:?}" ;;
+      esac
+    fi
+    ;;
   *) : ;;
 esac
 exit 0
