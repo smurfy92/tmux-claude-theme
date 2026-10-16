@@ -28,11 +28,22 @@ En permanence, à droite :
 - **`◐ N`** (pêche) — N sessions **au travail**
 - Rien ne s'affiche quand tout est calme (zéro bruit visuel).
 
-### 3. Saut direct vers une session en attente (`prefix + a`)
+### 3. Périmètre intersession (si le plugin est installé)
+Quand une session Claude Code déclare un **périmètre** (un groupe de sessions qui
+travaillent sur le même sujet), le thème l'affiche sur trois surfaces :
+- **l'onglet** de la window courante : `3:intersession ⟨jules⟩` ;
+- **`prefix + w` / `prefix + s`** : `⟨jules⟩` juste après le badge d'état ;
+- **la status bar**, à droite : un badge lavande `jules 2 · janus 1` (nombre de
+  sessions vivantes par périmètre), placé avant les compteurs `◆` / `◐`.
+
+Sans le plugin, ou si aucune session ne déclare de périmètre, rien ne s'affiche.
+Détails : [Périmètre intersession](#-périmètre-intersession).
+
+### 4. Saut direct vers une session en attente (`prefix + a`)
 Te téléporte sur la prochaine window où Claude attend. Presse répétée → cycle entre
 toutes. Aucune en attente → message « tout est traité ✓ ».
 
-### 4. Thème Catppuccin Mocha cohérent
+### 5. Thème Catppuccin Mocha cohérent
 Status bar, onglets, bordures de panes, menus, sélections, horloge — le tout en
 Catppuccin Mocha, **sans plugin de thème** (réglages manuels, donc aucune dépendance
 fragile). Les fenêtres inactives sont masquées de la status bar (navigation via
@@ -90,9 +101,53 @@ instantané sur les **permissions**, et un `work`/`idle` événementiel.
 > manquait, la couche B (heuristique) prend toujours le relais.
 
 Le résultat est stocké dans l'option window `@cc_state`, lue par `choose-tree`. Le
+même passage calcule le périmètre intersession, voir
+[Périmètre intersession](#-périmètre-intersession). Le
 script tourne **toutes les 5 s** (status bar), **juste avant** chaque `choose-tree`,
 et **à la demande** quand un hook déclenche un push (voir mode push ci-dessus).
 Pas de daemon ni de polling permanent au-delà du rafraîchissement status.
+
+---
+
+## 🧭 Périmètre intersession
+
+Le plugin **intersession** (dépôt `~/jules/intersession-plugin`, voir son `README.md`)
+coordonne plusieurs sessions Claude Code qui partagent un même **périmètre** (par
+exemple `jules` ou `janus`). Il pose, **sur chaque pane** où tourne une session, deux
+options tmux :
+
+| Option de pane | Contenu |
+|---|---|
+| `@cc_perimeter` | nom du périmètre (`^[a-z0-9][a-z0-9-]{0,31}$`) |
+| `@cc_perimeter_pid` | PID de la session Claude Code |
+
+Le thème **ne fait que lire** ces options, à chaque passage de
+[`scripts/cc-states.sh`](scripts/cc-states.sh).
+
+**Règle d'affichage : jamais de valeur poussée affichée sans vérification.** Un pane
+n'est retenu que si son nom est conforme **et** si son PID est **vivant** (`kill -0`,
+repli sur `ps -p` pour un processus d'un autre utilisateur). Le calcul est refait
+**toutes les 5 s** (et avant chaque `choose-tree`) : une session morte, ou dont le
+périmètre a été retiré, cesse d'afficher son périmètre au passage suivant, même si
+l'option est restée sur le pane. Un nom hors charte est ignoré, ce qui évite aussi
+toute injection de format dans la status bar.
+
+Le résultat est stocké dans l'option window `@cc_perimeter_ok` (format `⟨jules⟩`, ou
+`⟨jules⟩ ⟨janus⟩` si une window scindée porte plusieurs périmètres), posée ou retirée
+sur **chaque** window à chaque passage.
+
+| Surface | Rendu |
+|---|---|
+| Onglet de la window courante | `3:intersession ⟨jules⟩` |
+| `prefix + w` / `prefix + s` | `⟨jules⟩` après le badge d'état, avant le nom de la window |
+| Status bar (droite) | badge lavande `jules 2 · janus 1`, absent si aucune session n'a de périmètre |
+
+> ⚠️ Dans `choose-tree -s` (vue par sessions), l'option window doit se résoudre via la
+> window courante de la session. Si `⟨jules⟩` n'y apparaît pas, seuls `prefix + w` et
+> l'onglet le portent (à confirmer au premier usage).
+
+**Le thème fonctionne sans le plugin** : sans option `@cc_perimeter`, aucun périmètre
+n'est affiché et rien d'autre ne change.
 
 ---
 
@@ -206,7 +261,7 @@ tmux-claude-theme/
 ## 🧪 Tests
 
 ```bash
-./test.sh          # 12 cas : les 4 états, question libre, menu, hook périmé, purge, lien cassé
+./test.sh          # 17 cas : les 4 états, question libre, menu, hook périmé, purge, lien cassé, périmètre (13–17)
 shellcheck scripts/*.sh hooks/*.sh install.sh setup-hooks.sh test.sh tests/bin/tmux
 ```
 
