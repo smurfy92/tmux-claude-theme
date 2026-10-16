@@ -35,6 +35,10 @@ now="$(date +%s)"
 waiting=0
 work=0
 seen_windows=""   # fenêtres vues par list-windows, une « S:I » par ligne
+# Tous les `set` de la passe sont accumulés ici, séparés par « ; », puis envoyés en
+# UN seul appel tmux à la fin : un fork par fenêtre coûtait ~14 ms chacun, à chaque
+# rafraîchissement de la barre et avant chaque choose-tree.
+sets=()
 
 # Garde-fou : si le lien du hook est cassé (ex. dépôt déplacé), les hooks Claude
 # Code échouent en silence et les états se figent sans qu'on s'en aperçoive.
@@ -122,7 +126,7 @@ while IFS='|' read -r sess idx pane cmd title; do
       ;;
   esac
 
-  tmux set -w -t "${sess}:${idx}" @cc_state "$state"
+  sets+=(set -w -t "${sess}:${idx}" @cc_state "$state" \;)
   seen_windows="${seen_windows}${sess}:${idx}
 "
 done < <(tmux list-windows -a -F '#{session_name}|#{window_index}|#{pane_id}|#{pane_current_command}|#{pane_title}')
@@ -163,13 +167,31 @@ while IFS= read -r win; do
 $valid_panes
 EOF
   if [ -n "$ok" ]; then
-    tmux set -w -t "$win" @cc_perimeter_ok "$ok"
+    sets+=(set -w -t "$win" @cc_perimeter_ok "$ok" \;)
   else
-    tmux set -wu -t "$win" @cc_perimeter_ok
+    sets+=(set -wu -t "$win" @cc_perimeter_ok \;)
   fi
 done <<EOF
 $seen_windows
 EOF
+
+# Envoi groupé. tmux abandonne toute la suite au premier échec (fenêtre fermée entre
+# list-windows et ici) : on rejoue alors commande par commande pour que les autres
+# fenêtres soient quand même à jour.
+if [ "${#sets[@]}" -gt 0 ]; then
+  unset "sets[$((${#sets[@]} - 1))]"   # « ; » final
+  if ! tmux "${sets[@]}" 2>/dev/null; then
+    one=()
+    for a in "${sets[@]}" ";"; do
+      if [ "$a" = ";" ]; then
+        tmux "${one[@]}" 2>/dev/null
+        one=()
+      else
+        one+=("$a")
+      fi
+    done
+  fi
+fi
 
 # Badge status bar : rien quand il n'y a personne en attente / au travail.
 # - périmètres : « nom compteur » par périmètre vivant, triés par nom, en lavande
