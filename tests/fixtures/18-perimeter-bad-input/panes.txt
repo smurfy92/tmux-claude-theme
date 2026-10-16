@@ -1,0 +1,5 @@
+a:1|%1|jules|0
+a:2|%2|jules|-1
+a:3|%3|-x|ALIVE
+a:4|%4|abcdefghijklmnopqrstuvwxyz0123456|ALIVE
+a:5|%5|Jules|ALIVE
