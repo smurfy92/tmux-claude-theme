@@ -137,8 +137,16 @@ done < <(tmux list-windows -a -F '#{session_name}|#{window_index}|#{pane_id}|#{p
 # n'affiche jamais un périmètre périmé, et un nom hors charte (ex. « #[fg=red] »)
 # ne peut pas injecter de format dans la barre.
 # bash 3.2 (macOS) : pas de tableau associatif, on accumule des lignes « fenêtre|nom ».
+#
+# Sessions groupées (new-session -t) : list-panes -a liste un pane une fois par
+# session qui le montre (a:1|%5 et b:1|%5), et a:1 / b:1 sont la MÊME fenêtre.
+#  - valid_panes garde toutes ces lignes : chaque alias reçoit la même valeur, alors
+#    qu'un set -wu via l'alias sans pane effacerait la valeur posée via l'autre ;
+#  - badge_names ne compte un pane qu'une fois (dédoublonné par pane_id).
 valid_panes=""
-while IFS='|' read -r pwin _ per pid; do
+badge_names=""
+seen_pane_ids=" "
+while IFS='|' read -r pwin pane_id per pid; do
   # Nom : ^[a-z0-9][a-z0-9-]{0,31}$ (classes énumérées, indépendantes de la locale).
   case "$per" in
     ""|-*|*[!abcdefghijklmnopqrstuvwxyz0123456789-]*) continue ;;
@@ -153,16 +161,27 @@ while IFS='|' read -r pwin _ per pid; do
   kill -0 "$pid" 2>/dev/null || ps -p "$pid" >/dev/null 2>&1 || continue
   valid_panes="${valid_panes}${pwin}|${per}
 "
+  case "$seen_pane_ids" in
+    *" ${pane_id} "*) ;;
+    *) seen_pane_ids="${seen_pane_ids}${pane_id} "
+       badge_names="${badge_names}${per}
+" ;;
+  esac
 done < <(tmux list-panes -a -F '#{session_name}:#{window_index}|#{pane_id}|#{@cc_perimeter}|#{@cc_perimeter_pid}' 2>/dev/null)
 
 # @cc_perimeter_ok sur CHAQUE fenêtre vue, à chaque passage : posée si la fenêtre a
 # au moins un pane valide, retirée sinon. Un passage = un état complet, aucune
-# valeur périmée ne survit.
+# valeur périmée ne survit. Un nom n'y figure qu'une fois, même si plusieurs sessions
+# du même périmètre partagent la fenêtre (le badge, lui, les compte toutes).
 while IFS= read -r win; do
   [ -n "$win" ] || continue
   ok=""
   while IFS='|' read -r pwin per; do
-    [ "$pwin" = "$win" ] && ok="${ok:+$ok }⟨${per}⟩"
+    [ "$pwin" = "$win" ] || continue
+    case " $ok " in
+      *" ⟨${per}⟩ "*) ;;
+      *) ok="${ok:+$ok }⟨${per}⟩" ;;
+    esac
   done <<EOF
 $valid_panes
 EOF
@@ -198,8 +217,8 @@ fi
 # - waiting : pastille rouge pleine + clignotement (impossible à louper)
 # - work    : compteur pêche discret
 out=""
-if [ -n "$valid_panes" ]; then
-  per_counts="$(printf '%s' "$valid_panes" | cut -d'|' -f2 | LC_ALL=C sort | uniq -c \
+if [ -n "$badge_names" ]; then
+  per_counts="$(printf '%s' "$badge_names" | LC_ALL=C sort | uniq -c \
     | awk '{ printf "%s%s %s", (NR > 1 ? " · " : ""), $2, $1 }')"
   out="#[fg=#1e1e2e]#[bg=#b4befe] ${per_counts} #[default] "
 fi
