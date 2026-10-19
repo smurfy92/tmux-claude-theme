@@ -1,0 +1,11 @@
+
+a:1 @cc_perimeter_ok=
+a:1=shell
+a:2 @cc_perimeter_ok=
+a:2=shell
+a:3 @cc_perimeter_ok=
+a:3=shell
+a:4 @cc_perimeter_ok=
+a:4=shell
+a:5 @cc_perimeter_ok=
+a:5=shell

@@ -34,6 +34,11 @@ STALE_AFTER=3600   # secondes avant de ne plus faire confiance à un hook work/w
 now="$(date +%s)"
 waiting=0
 work=0
+seen_windows=""   # fenêtres vues par list-windows, une « S:I » par ligne
+# Tous les `set` de la passe sont accumulés ici, séparés par « ; », puis envoyés en
+# UN seul appel tmux à la fin : un fork par fenêtre coûtait ~14 ms chacun, à chaque
+# rafraîchissement de la barre et avant chaque choose-tree.
+sets=()
 
 # Garde-fou : si le lien du hook est cassé (ex. dépôt déplacé), les hooks Claude
 # Code échouent en silence et les états se figent sans qu'on s'en aperçoive.
@@ -121,14 +126,103 @@ while IFS='|' read -r sess idx pane cmd title; do
       ;;
   esac
 
-  tmux set -w -t "${sess}:${idx}" @cc_state "$state"
+  sets+=(set -w -t "${sess}:${idx}" @cc_state "$state" \;)
+  seen_windows="${seen_windows}${sess}:${idx}
+"
 done < <(tmux list-windows -a -F '#{session_name}|#{window_index}|#{pane_id}|#{pane_current_command}|#{pane_title}')
 
+# Périmètre intersession : le plugin pose sur le pane de chaque session Claude Code
+# les options @cc_perimeter (nom) et @cc_perimeter_pid (PID de la session). On ne
+# retient un pane que si le nom est conforme et le PID vivant : une session morte
+# n'affiche jamais un périmètre périmé, et un nom hors charte (ex. « #[fg=red] »)
+# ne peut pas injecter de format dans la barre.
+# bash 3.2 (macOS) : pas de tableau associatif, on accumule des lignes « fenêtre|nom ».
+#
+# Sessions groupées (new-session -t) : list-panes -a liste un pane une fois par
+# session qui le montre (a:1|%5 et b:1|%5), et a:1 / b:1 sont la MÊME fenêtre.
+#  - valid_panes garde toutes ces lignes : chaque alias reçoit la même valeur, alors
+#    qu'un set -wu via l'alias sans pane effacerait la valeur posée via l'autre ;
+#  - badge_names ne compte un pane qu'une fois (dédoublonné par pane_id).
+valid_panes=""
+badge_names=""
+seen_pane_ids=" "
+while IFS='|' read -r pwin pane_id per pid; do
+  # Nom : ^[a-z0-9][a-z0-9-]{0,31}$ (classes énumérées, indépendantes de la locale).
+  case "$per" in
+    ""|-*|*[!abcdefghijklmnopqrstuvwxyz0123456789-]*) continue ;;
+  esac
+  [ "${#per}" -le 32 ] || continue
+  # PID : chiffres seulement, et pas 0 (kill -0 0 viserait le groupe de processus).
+  case "$pid" in
+    ""|0*|*[!0123456789]*) continue ;;
+  esac
+  # kill -0 échoue aussi (EPERM) pour un processus vivant d'un autre utilisateur :
+  # ps tranche alors sur l'existence.
+  kill -0 "$pid" 2>/dev/null || ps -p "$pid" >/dev/null 2>&1 || continue
+  valid_panes="${valid_panes}${pwin}|${per}
+"
+  case "$seen_pane_ids" in
+    *" ${pane_id} "*) ;;
+    *) seen_pane_ids="${seen_pane_ids}${pane_id} "
+       badge_names="${badge_names}${per}
+" ;;
+  esac
+done < <(tmux list-panes -a -F '#{session_name}:#{window_index}|#{pane_id}|#{@cc_perimeter}|#{@cc_perimeter_pid}' 2>/dev/null)
+
+# @cc_perimeter_ok sur CHAQUE fenêtre vue, à chaque passage : posée si la fenêtre a
+# au moins un pane valide, retirée sinon. Un passage = un état complet, aucune
+# valeur périmée ne survit. Un nom n'y figure qu'une fois, même si plusieurs sessions
+# du même périmètre partagent la fenêtre (le badge, lui, les compte toutes).
+while IFS= read -r win; do
+  [ -n "$win" ] || continue
+  ok=""
+  while IFS='|' read -r pwin per; do
+    [ "$pwin" = "$win" ] || continue
+    case " $ok " in
+      *" ⟨${per}⟩ "*) ;;
+      *) ok="${ok:+$ok }⟨${per}⟩" ;;
+    esac
+  done <<EOF
+$valid_panes
+EOF
+  if [ -n "$ok" ]; then
+    sets+=(set -w -t "$win" @cc_perimeter_ok "$ok" \;)
+  else
+    sets+=(set -wu -t "$win" @cc_perimeter_ok \;)
+  fi
+done <<EOF
+$seen_windows
+EOF
+
+# Envoi groupé. tmux abandonne toute la suite au premier échec (fenêtre fermée entre
+# list-windows et ici) : on rejoue alors commande par commande pour que les autres
+# fenêtres soient quand même à jour.
+if [ "${#sets[@]}" -gt 0 ]; then
+  unset "sets[$((${#sets[@]} - 1))]"   # « ; » final
+  if ! tmux "${sets[@]}" 2>/dev/null; then
+    one=()
+    for a in "${sets[@]}" ";"; do
+      if [ "$a" = ";" ]; then
+        tmux "${one[@]}" 2>/dev/null
+        one=()
+      else
+        one+=("$a")
+      fi
+    done
+  fi
+fi
+
 # Badge status bar : rien quand il n'y a personne en attente / au travail.
+# - périmètres : « nom compteur » par périmètre vivant, triés par nom, en lavande
 # - waiting : pastille rouge pleine + clignotement (impossible à louper)
 # - work    : compteur pêche discret
 out=""
-[ "$waiting" -gt 0 ] && out="#[fg=#1e1e2e]#[bg=#f38ba8]#[bold]#[blink] ◆ ${waiting} #[default] "
+if [ -n "$badge_names" ]; then
+  per_counts="$(printf '%s' "$badge_names" | LC_ALL=C sort | uniq -c \
+    | awk '{ printf "%s%s %s", (NR > 1 ? " · " : ""), $2, $1 }')"
+  out="#[fg=#1e1e2e]#[bg=#b4befe] ${per_counts} #[default] "
+fi
+[ "$waiting" -gt 0 ] && out="${out}#[fg=#1e1e2e]#[bg=#f38ba8]#[bold]#[blink] ◆ ${waiting} #[default] "
 [ "$work"    -gt 0 ] && out="${out}#[fg=#fab387]◐ ${work}#[default] "
 [ "$hook_broken" -eq 1 ] && out="${out}#[fg=#f9e2af]#[bold]⚠ hook#[nobold]#[default] "
 printf '%s' "$out"
