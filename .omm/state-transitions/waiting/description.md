@@ -1,0 +1,1 @@
+Claude attend l'utilisateur : hook waiting (PermissionRequest), menu interactif détecté à l'écran, ou, sans hook, prose finale contenant « ? ». Affiché ◆ rouge ; compté dans la pastille clignotante ◆ N et ciblé par cc-jump.sh.

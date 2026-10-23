@@ -1,0 +1,1 @@
+Pensé pour qui fait tourner plusieurs sessions Claude Code en parallèle, une par fenêtre tmux, et veut savoir d'un coup d'œil laquelle attend une réponse. L'installation crée des liens symboliques vers le dépôt : toute édition dans le dépôt est donc immédiatement active dans ~/.tmux.conf et ~/.tmux/scripts/. La CI GitHub Actions lance shellcheck puis ./test.sh.

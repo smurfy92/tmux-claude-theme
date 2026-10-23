@@ -1,0 +1,1 @@
+Toute la logique tient dans cc-states.sh, appelé toutes les 5 s par la status bar, à chaque push des hooks et avant chaque choose-tree : c'est le point chaud et le point de défaillance unique. L'heuristique de repli dépend de textes de l'interface Claude Code (« Esc to cancel », « Do you want »…) qui peuvent changer sans préavis.

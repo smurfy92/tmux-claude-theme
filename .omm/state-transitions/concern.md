@@ -1,0 +1,1 @@
+La transition vers waiting par question libre repose uniquement sur l'heuristique « ? » dans les trois dernières lignes de prose : faux positifs et faux négatifs possibles, et dépendance au rendu de l'interface Claude Code.

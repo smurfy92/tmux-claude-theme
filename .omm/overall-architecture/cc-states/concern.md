@@ -1,0 +1,1 @@
+Le chemin de rendu de la status bar supprime des fichiers (purge des orphelins) : un effet de bord destructif dans un script d'affichage. Les hooks work/waiting sont ignorés au-delà de 3600 s, valeur codée en dur. La purge supprime tous les fichiers d'état si tmux list-panes échoue (liste vide) : perte d'état temporaire seulement.

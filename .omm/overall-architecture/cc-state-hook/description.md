@@ -1,0 +1,1 @@
+Hook Claude Code hooks/cc-state-hook.sh. Reçoit l'état voulu en argument (work, waiting, idle, end), identifie le pane via $TMUX_PANE, écrit l'état et l'epoch dans ~/.claude/state/<pane> ou supprime le fichier pour end. Avec l'argument refresh, force tmux refresh-client -S sur tous les clients pour mettre à jour la barre en environ 100 ms.

@@ -1,0 +1,15 @@
+created: 2026-10-23T09:58:20.135Z
+updated: 2026-10-23T09:59:56.383Z
+update_count: 7
+last_field: note
+git_commit: d53b2ee
+git_branch: main
+children:
+  - cc-jump
+  - cc-state-hook
+  - cc-states
+  - claude-code
+  - installer
+  - intersession-plugin
+  - test-harness
+  - tmux-conf

@@ -1,0 +1,11 @@
+created: 2026-10-23T09:59:54.599Z
+updated: 2026-10-23T10:01:19.385Z
+update_count: 7
+last_field: note
+git_commit: d53b2ee
+git_branch: main
+children:
+  - idle
+  - shell
+  - waiting
+  - work

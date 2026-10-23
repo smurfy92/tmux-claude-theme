@@ -1,0 +1,22 @@
+graph LR
+    installer["Installer\ninstall.sh + setup-hooks.sh"]
+    tmux-conf["Tmux Conf\ntmux.conf"]
+    cc-states["CC States\nscripts/cc-states.sh"]
+    cc-jump["CC Jump\nscripts/cc-jump.sh"]
+    cc-state-hook["CC State Hook\nhooks/cc-state-hook.sh"]
+    claude-code["Claude Code\n~/.claude/settings.json"]
+    intersession-plugin["Intersession Plugin\noptions de pane externes"]
+    test-harness["Test Harness\ntest.sh + tests/"]
+    installer -->|"symlinks ~/.tmux.conf et scripts"| tmux-conf
+    installer -->|"fusionne les hooks via jq"| claude-code
+    claude-code -->|"déclenche sur événement"| cc-state-hook
+    tmux-conf -->|"status-right toutes les 5 s, bind w/s"| cc-states
+    tmux-conf -->|"bind prefix + a"| cc-jump
+    cc-jump -->|"rafraîchit les états avant le saut"| cc-states
+    cc-state-hook -->|"écrit ~/.claude/state/pane, refresh-client"| cc-states
+    intersession-plugin -->|"pose périmètre et PID sur le pane"| cc-states
+    test-harness -->|"faux tmux et fixtures"| cc-states
+    classDef external fill:#585b70,stroke:#585b70,color:#cdd6f4
+    classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
+    class claude-code,intersession-plugin external
+    class installer,tmux-conf entry

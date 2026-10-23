@@ -1,0 +1,1 @@
+Script central scripts/cc-states.sh. À chaque passe : purge les fichiers d'état orphelins de ~/.claude/state/, classe chaque fenêtre (waiting, work, idle, shell) en combinant le hook et l'heuristique titre/contenu, valide les périmètres intersession (nom conforme, PID vivant), pose @cc_state et @cc_perimeter_ok en un seul appel tmux groupé, puis imprime le badge de la status bar.

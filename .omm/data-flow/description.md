@@ -1,0 +1,1 @@
+Trajet de l'information, des événements Claude Code jusqu'à l'affichage tmux. Deux sources d'entrée (fichiers d'état écrits par les hooks, contenu des panes) plus les options de périmètre convergent vers cc-states.sh, qui écrit des options de fenêtre tmux et imprime le badge.

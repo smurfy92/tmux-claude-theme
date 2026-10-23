@@ -1,0 +1,1 @@
+Système externe : le plugin Claude Code intersession, qui pose sur le pane de chaque session le nom de périmètre et le PID de la session. Ce dépôt ne fait que lire ces options et les afficher ; il ne les écrit jamais.
