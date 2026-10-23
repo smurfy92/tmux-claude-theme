@@ -1,0 +1,1 @@
+Le thème est appliqué à la main, sans plugin de thème. Les plugins tpm, tmux-sensible, tmux-resurrect et tmux-continuum sont chargés en fin de tmux.conf, après la status bar, pour que continuum ajoute son hook à status-right sans l'écraser.

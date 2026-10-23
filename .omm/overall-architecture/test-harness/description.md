@@ -1,0 +1,1 @@
+Harnais test.sh + tests/. Un faux binaire tests/bin/tmux, placé en tête du PATH, sert les fixtures de tests/fixtures/<cas>/ (windows.txt, screens/, state/, panes.txt) et enregistre les set reçus. test.sh compare badge et options posées à expected.txt, dans un HOME temporaire. 20 cas, couvrant états, péremption, purge, lien cassé et périmètres.

@@ -1,0 +1,19 @@
+graph LR
+    hook-events["Hook Events\nClaude Code -> cc-state-hook.sh"]
+    state-files["State Files\n~/.claude/state/"]
+    pane-content["Pane Content\ntmux list-windows + capture-pane"]
+    perimeter-options["Perimeter Options\noptions de pane externes"]
+    classification["Classification\nscripts/cc-states.sh"]
+    window-options["Window Options\noptions de fenêtre tmux"]
+    tmux-surfaces["Tmux Surfaces\nstatus-right, choose-tree, onglet"]
+    hook-events -->|"état + epoch par pane"| state-files
+    state-files -->|"hook frais ou périmé"| classification
+    pane-content -->|"titre, commande, écran"| classification
+    perimeter-options -->|"nom et PID à valider"| classification
+    classification -->|"set groupé"| window-options
+    classification -->|"badge sur stdout"| tmux-surfaces
+    window-options -->|"lues par les formats"| tmux-surfaces
+    classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
+    classDef external fill:#585b70,stroke:#585b70,color:#cdd6f4
+    class state-files,window-options store
+    class hook-events,perimeter-options external

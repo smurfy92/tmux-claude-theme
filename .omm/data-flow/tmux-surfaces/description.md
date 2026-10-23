@@ -1,0 +1,1 @@
+Trois surfaces d'affichage dans tmux.conf : status-right (badge imprimé par le script), choose-tree de prefix + w et prefix + s (lit @cc_state et @cc_perimeter_ok), et l'onglet de la fenêtre courante (lit @cc_perimeter_ok). cc-jump.sh lit aussi @cc_state.

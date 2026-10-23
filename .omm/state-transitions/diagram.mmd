@@ -1,0 +1,14 @@
+graph LR
+    shell["Shell\ntitre vide ou zsh/bash"]
+    work["Work\nspinner braille ou hook work"]
+    waiting["Waiting\nhook waiting, menu ou question"]
+    idle["Idle\nhook idle ou titre ✳ sans signal"]
+    shell -->|"lancement de claude"| idle
+    idle -->|"UserPromptSubmit"| work
+    work -->|"PermissionRequest ou menu à l'écran"| waiting
+    waiting -->|"réponse, PreToolUse"| work
+    work -->|"Stop, prose finale sans ?"| idle
+    work -->|"Stop, prose finale avec ? sans hook"| waiting
+    idle -->|"SessionEnd, fichier supprimé"| shell
+    classDef concern fill:#f38ba8,stroke:#f38ba8,color:#1e1e2e
+    class waiting concern

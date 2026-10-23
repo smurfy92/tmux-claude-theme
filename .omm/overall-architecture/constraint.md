@@ -1,0 +1,1 @@
+Compatible bash 3.2 (macOS) : pas de tableaux associatifs ni de mapfile. Dans les formats tmux, pas de virgule à l'intérieur des #[...] ni des #{?...}, sinon le découpage conditionnel casse. Les chemins ~/.tmux/scripts/ et ~/.claude/hooks/ sont codés en dur dans tmux.conf et les scripts.

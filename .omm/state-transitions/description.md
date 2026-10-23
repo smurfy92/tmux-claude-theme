@@ -1,0 +1,1 @@
+Cycle de vie de l'état @cc_state d'une fenêtre tmux contenant (ou non) une session Claude Code. L'état n'est pas stocké comme une machine à états : il est recalculé à chaque passe de cc-states.sh à partir des signaux disponibles.

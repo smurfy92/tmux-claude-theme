@@ -1,0 +1,1 @@
+Fichiers ~/.claude/state/%<pane> : ligne 1 l'état, ligne 2 l'epoch d'écriture. Un work ou waiting de plus de 3600 s est ignoré ; idle reste fiable quel que soit son âge. Les orphelins sont purgés par cc-states.sh.

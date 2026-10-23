@@ -1,0 +1,1 @@
+Script scripts/cc-jump.sh, lié à prefix + a. Relance cc-states.sh pour des états frais, liste les fenêtres dont @cc_state vaut waiting, puis bascule sur la suivante après la fenêtre courante (cycle avec retour au début). Affiche un message si aucune session n'attend.

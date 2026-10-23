@@ -1,0 +1,1 @@
+Lecture tmux : list-windows fournit session, index, pane, commande et titre ; capture-pane fournit l'écran, utilisé seulement pour un titre ✳ sans hook waiting ou work, afin de détecter un menu ou une question.

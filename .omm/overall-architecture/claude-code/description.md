@@ -1,0 +1,1 @@
+Système externe : Claude Code, configuré par ~/.claude/settings.json. Ses hooks UserPromptSubmit, PreToolUse, PermissionRequest, Stop, SessionStart et SessionEnd appellent cc-state-hook.sh de façon asynchrone (timeout 5 s).
